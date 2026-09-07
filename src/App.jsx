@@ -552,13 +552,16 @@ function Shop(store) {
     return list;
   }, [category, inStockOnly, maxPrice, minPrice, newOnly, query, sort]);
   const onCompare = (product) =>
-    setCompare((items) =>
-      items.some((item) => item.id === product.id)
-        ? items.filter((item) => item.id !== product.id)
-        : items.length < 4
-          ? [...items, product]
-          : items,
-    );
+    setCompare((items) => {
+      if (items.some((item) => item.id === product.id)) {
+        return items.filter((item) => item.id !== product.id);
+      }
+      if (items.length && items[0].category !== product.category) {
+        store.notify(`Compare only ${items[0].category.toLowerCase()} products together`);
+        return items;
+      }
+      return items.length < 4 ? [...items, product] : items;
+    });
   return (
     <Page>
       <div className="shop-head container">
