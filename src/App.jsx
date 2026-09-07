@@ -87,11 +87,11 @@ function useStore() {
   };
   const updateQuantity = (id, delta) =>
     setCart((items) =>
-      items.map((item) =>
-        item.id === id
-          ? { ...item, quantity: Math.max(1, item.quantity + delta) }
-          : item,
-      ),
+      items
+        .map((item) =>
+          item.id === id ? { ...item, quantity: item.quantity + delta } : item,
+        )
+        .filter((item) => item.quantity > 0),
     );
   const removeCart = (id) =>
     setCart((items) => items.filter((item) => item.id !== id));
@@ -684,29 +684,37 @@ function Shop(store) {
   );
 }
 function CompareBar({ products: items, onClear }) {
+  const [showTable, setShowTable] = useState(false);
   return (
-    <motion.div className="compare-bar" initial={{ y: 100 }} animate={{ y: 0 }}>
-      <div>
-        <span className="eyebrow">Compare selection</span>
-        <b>{items.length} of 4 selected</b>
-      </div>
-      <div className="compare-thumbs">
-        {items.map((item) => (
-          <img key={item.id} src={item.image} alt="" />
-        ))}
-      </div>
-      <button
-        className="button button-dark"
-        onClick={() =>
-          alert(`Comparing ${items.map((item) => item.name).join(", ")}`)
-        }
-      >
-        Compare now <ArrowRight size={16} />
-      </button>
-      <button className="icon-btn" onClick={onClear}>
-        <X size={18} />
-      </button>
-    </motion.div>
+    <>
+      <motion.div className="compare-bar" initial={{ y: 100 }} animate={{ y: 0 }}>
+        <div>
+          <span className="eyebrow">Compare selection</span>
+          <b>{items.length} of 4 selected</b>
+        </div>
+        <div className="compare-thumbs">
+          {items.map((item) => <img key={item.id} src={item.image} alt={item.name} />)}
+        </div>
+        <button className="button button-dark" disabled={items.length < 2} onClick={() => setShowTable(true)}>
+          {items.length < 2 ? "Select one more" : "Compare now"} <ArrowRight size={16} />
+        </button>
+        <button className="icon-btn" onClick={onClear} aria-label="Clear comparison"><X size={18} /></button>
+      </motion.div>
+      {showTable && <div className="compare-overlay" role="dialog" aria-modal="true" aria-label="Product comparison">
+        <motion.div className="compare-modal" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+          <div className="compare-modal-head"><div><span className="eyebrow">Side by side</span><h2>Compare <em>your edit.</em></h2></div><button className="icon-btn" onClick={() => setShowTable(false)} aria-label="Close comparison"><X size={20} /></button></div>
+          <div className="compare-table-wrap"><table className="compare-table"><thead><tr><th>Details</th>{items.map((item) => <th key={item.id}><img src={item.image} alt={item.name} /><b>{item.name}</b><small>{item.brand}</small></th>)}</tr></thead><tbody>
+            <tr><th>Price</th>{items.map((item) => <td key={item.id}><strong>{formatPrice(item.price)}</strong><del>{formatPrice(item.originalPrice)}</del></td>)}</tr>
+            <tr><th>Rating</th>{items.map((item) => <td key={item.id}>★ {item.rating} <small>({item.reviews} reviews)</small></td>)}</tr>
+            <tr><th>Discount</th>{items.map((item) => <td key={item.id}><span className="compare-discount">{item.discount}% off</span></td>)}</tr>
+            <tr><th>Availability</th>{items.map((item) => <td key={item.id} className={item.stock ? "available" : "unavailable"}>{item.stock ? `${item.stock} in stock` : "Out of stock"}</td>)}</tr>
+            <tr><th>Colours</th>{items.map((item) => <td key={item.id}>{item.colors.join(" · ")}</td>)}</tr>
+            <tr><th>Specifications</th>{items.map((item) => <td key={item.id}>{item.specifications.join(" · ")}</td>)}</tr>
+          </tbody></table></div>
+          <div className="compare-modal-foot"><span>Showing {items.length} selected products</span><button className="button button-dark" onClick={() => { setShowTable(false); onClear(); }}>Done comparing <Check size={16} /></button></div>
+        </motion.div>
+      </div>}
+    </>
   );
 }
 function ProductDetail({ ...store }) {
@@ -1041,11 +1049,11 @@ function Checkout({ cart }) {
               </h2>
               {step === 1 && (
                 <div className="form-fields">
-                  <input required placeholder="Full name" />
-                  <input required type="tel" placeholder="Phone number" />
-                  <input required placeholder="Address" className="wide" />
-                  <input required placeholder="City" />
-                  <input required placeholder="PIN code" />
+                  <input required minLength={2} placeholder="Full name" autoComplete="name" />
+                  <input required type="tel" inputMode="numeric" pattern="[6-9][0-9]{9}" maxLength={10} placeholder="10-digit mobile number" title="Enter a valid 10-digit Indian mobile number" autoComplete="tel" onInput={(e) => { e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "").slice(0, 10); }} />
+                  <input required placeholder="Address" className="wide" autoComplete="street-address" />
+                  <input required placeholder="City" autoComplete="address-level2" />
+                  <input required type="text" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="6-digit PIN code" title="Enter a valid 6-digit PIN code" autoComplete="postal-code" onInput={(e) => { e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "").slice(0, 6); }} />
                 </div>
               )}
               {step === 2 && (
@@ -1072,12 +1080,12 @@ function Checkout({ cart }) {
                 <div className="form-fields">
                   <label className="wide field-label">
                     Card details
-                    <input required placeholder="0000 0000 0000 0000" />
+                    <input required inputMode="numeric" pattern="[0-9]{16}" maxLength={16} placeholder="16-digit card number" title="Enter a valid 16-digit card number" autoComplete="cc-number" onInput={(e) => { e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "").slice(0, 16); }} />
                   </label>
-                  <input required placeholder="MM / YY" />
-                  <input required placeholder="CVV" />
+                  <input required inputMode="numeric" pattern="(0[1-9]|1[0-2])\/[0-9]{2}" maxLength={5} placeholder="MM / YY" title="Enter expiry as MM / YY" autoComplete="cc-exp" onInput={(e) => { const value = e.currentTarget.value.replace(/\D/g, "").slice(0, 4); e.currentTarget.value = value.length > 2 ? `${value.slice(0, 2)}/${value.slice(2)}` : value; }} />
+                  <input required type="password" inputMode="numeric" pattern="[0-9]{3}" maxLength={3} placeholder="CVV" title="Enter a 3-digit CVV" autoComplete="cc-csc" onInput={(e) => { e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "").slice(0, 3); }} />
                   <label className="wide check-label">
-                    <input type="checkbox" required /> Save details for next
+                    <input type="checkbox" /> Save details for next
                     time
                   </label>
                 </div>
@@ -1141,6 +1149,7 @@ function Wishlist(store) {
   );
 }
 function Account({ cart, wishlist }) {
+  const [signedIn, setSignedIn] = useState(false);
   return (
     <Page>
       <div className="account-page container">
@@ -1156,12 +1165,15 @@ function Account({ cart, wishlist }) {
               Sign in to save your details, track orders and keep your edits
               synced.
             </p>
-            <button
-              className="button button-dark"
-              onClick={() => alert("Demo sign-in flow")}
-            >
-              Sign in to continue <ArrowRight size={16} />
-            </button>
+            {signedIn ? (
+              <p className="account-success">
+                <Check size={15} /> Demo sign-in ready
+              </p>
+            ) : (
+              <button className="button button-dark" onClick={() => setSignedIn(true)}>
+                Sign in to continue <ArrowRight size={16} />
+              </button>
+            )}
           </section>
           <aside className="account-summary">
             <div>
